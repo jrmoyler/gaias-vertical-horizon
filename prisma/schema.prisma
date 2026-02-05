@@ -1,0 +1,79 @@
+generator client {
+    provider = "prisma-client-js"
+    binaryTargets = ["native", "linux-musl-arm64-openssl-3.0.x"]
+    output = "/home/ubuntu/gaias_vertical_horizon/nextjs_space/node_modules/.prisma/client"
+}
+
+datasource db {
+    provider = "postgresql"
+    url      = env("DATABASE_URL")
+}
+
+model Player {
+  id                String                    @id @default(cuid())
+  gaiaBalance       Int                       @default(1000)
+  energyCostPerHour Int                       @default(0)
+  lastTickTime      DateTime                  @default(now())
+  createdAt         DateTime                  @default(now())
+  updatedAt         DateTime                  @updatedAt
+  
+  rackUnits         RackUnit[]
+  environment       EnvironmentalParameters?
+  upgrades          Upgrade[]
+}
+
+model RackUnit {
+  id        String   @id @default(cuid())
+  playerId  String
+  slotIndex Int      // 0-8 for 3x3 grid
+  isEmpty   Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  player    Player   @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  crop      Crop?
+  
+  @@unique([playerId, slotIndex])
+}
+
+model Crop {
+  id                  String   @id @default(cuid())
+  rackUnitId          String   @unique
+  cropType            String   // "microgreens", "strawberries", "wasabi"
+  growthStage         String   // "seed", "germination", "vegetative", "flowering", "harvest_ready"
+  plantedAt           DateTime @default(now())
+  progressPercent     Float    @default(0)
+  qualityGrade        String?  // "C", "B", "A", "S" - calculated at harvest
+  environmentalScore  Float    @default(100) // tracks how well maintained, starts at 100
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+  
+  rackUnit            RackUnit @relation(fields: [rackUnitId], references: [id], onDelete: Cascade)
+}
+
+model EnvironmentalParameters {
+  id                String   @id @default(cuid())
+  playerId          String   @unique
+  waterLevel        Float    @default(100) // 0-100
+  phLevel           Float    @default(6.0) // 0-14, optimal 5.5-6.5
+  nutrientPPM       Int      @default(1500) // 0-2000
+  lightingIntensity Int      @default(80) // 0-100
+  lastUpdated       DateTime @default(now())
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  player            Player   @relation(fields: [playerId], references: [id], onDelete: Cascade)
+}
+
+model Upgrade {
+  id          String   @id @default(cuid())
+  playerId    String
+  upgradeType String   // "auto_water", "auto_nutrient", "ph_stabilizer", "efficient_lighting", "tower_expansion"
+  level       Int      @default(1) // 1+ means purchased
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  player      Player   @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  
+  @@unique([playerId, upgradeType])
+}
